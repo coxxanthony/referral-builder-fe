@@ -1,65 +1,126 @@
-import Image from "next/image";
+"use client";
+
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  AddReferralDialog,
+  ReferralFormValues,
+} from "@/components/referrals/add-referral-dialog";
+import { api } from "@/utils/axios";
+import { Pen, Trash } from "lucide-react";
+
+export type Referral = ReferralFormValues & {
+  id: number;
+  created_at: string;
+  updated_at: string;
+};
 
 export default function Home() {
+  const queryClient = useQueryClient();
+
+  const {
+    data: referrals,
+    isLoading,
+    isError,
+    error,
+  } = useQuery<Referral[], Error>({
+    queryKey: ["referrals"],
+    queryFn: async () => {
+      const response = await api.get<{ data: Referral[] }>("/referrals");
+      return response.data.data;
+    },
+  });
+
+  const addMutation = useMutation<Referral, Error, ReferralFormValues>({
+    mutationFn: async (values: ReferralFormValues) => {
+      const payload = {
+        ...values,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      const { data } = await api.post<Referral>("/referrals", payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["referrals"] });
+    },
+  });
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <Card className="w-3/4 mx-auto mt-10">
+      <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-lg font-semibold">Referrals</h2>
+        <AddReferralDialog onSubmit={(values) => addMutation.mutate(values)} />
+      </CardHeader>
+
+      <CardContent>
+        <div className="w-full overflow-x-auto">
+          {isLoading ? (
+            <div className="p-4">Loading referrals...</div>
+          ) : isError ? (
+            <div className="p-4 text-red-500">{error.message}</div>
+          ) : referrals?.length === 0 ? (
+            <div className="p-4">No referrals found.</div>
+          ) : (
+            <Table className="min-w-150 sm:min-w-0">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="uppercase text-sm text-semibold">
+                    Given Name
+                  </TableHead>
+                  <TableHead className="uppercase text-sm text-semibold">
+                    Surname
+                  </TableHead>
+                  <TableHead className="uppercase text-sm text-semibold">
+                    Email
+                  </TableHead>
+                  <TableHead className="uppercase text-sm text-semibold">
+                    Phone
+                  </TableHead>
+                  <TableHead className="uppercase text-sm text-semibold">
+                    Actions
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+
+              <TableBody>
+                {referrals?.map((referral: Referral) => (
+                  <TableRow key={referral.id}>
+                    <TableCell>{referral.given_name}</TableCell>
+                    <TableCell>{referral.surname}</TableCell>
+                    <TableCell>{referral.email}</TableCell>
+                    <TableCell>{referral.phone}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Pen
+                          size={16}
+                          fill="#A8A8A8"
+                          color="#A8A8A8"
+                          className="cursor-pointer text-muted-foreground"
+                        />
+                        <Trash
+                          size={16}
+                          fill="#A8A8A8"
+                          color="#A8A8A8"
+                          className="cursor-pointer text-muted-foreground"
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
